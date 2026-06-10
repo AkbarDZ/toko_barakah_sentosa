@@ -1,0 +1,51 @@
+.topbar {
+    background: #ffffff !important;
+    color: #000 !important;
+}
+
+.topbar .navbar-nav .nav-link {
+    color: #000 !important;
+}
+
+.navbar-header {
+    background: #ffffff !important;
+}
+
+.left-sidebar {
+    background: #ffffff !important;
+}
+
+.sidebar-nav ul li a {
+    color: #333 !important;
+}
+
+.sidebar-nav ul li a:hover {
+    background: #f5f5f5 !important;
+}
+
+.page-wrapper {
+    background: #f9f9f9;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    padding: 0;
+}
+
+div.dataTables_wrapper div.dataTables_filter {
+    margin-bottom: 15px;
+}
+
+/* Mengatur posisi tombol X (clear) Select2 */
+    .select2-container .select2-selection--single .select2-selection__clear {
+        position: absolute !important;
+        right: 30px !important; /* Jarak dari pinggir kanan (sebelum panah) */
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        margin-right: 0 !important;
+        z-index: 10;
+    }
+    
+    /* Mencegah teks pilihan bertumpuk dengan tombol X */
+    .select2-container .select2-selection--single .select2-selection__rendered {
+        padding-right: 45px !important;
+    }
