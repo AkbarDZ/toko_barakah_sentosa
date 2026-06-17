@@ -8,9 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Kategori extends Model
 {
-    use HasFactory;
-
-    // use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'kategori';
     protected $primaryKey = 'id_kategori';

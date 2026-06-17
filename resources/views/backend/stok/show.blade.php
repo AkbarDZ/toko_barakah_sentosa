@@ -12,29 +12,47 @@
                 <a href="{{ route('stok.cetak', $pergerakan->id_pergerakan) }}" target="_blank" class="btn btn-success">
                     <i class="fas fa-print"></i> Cetak
                 </a>
+                @if(session('user_role') === 'admin')
+                <form action="{{ route('stok.destroy', $pergerakan->id_pergerakan) }}" method="POST" class="d-inline"
+                    onsubmit="return confirm('Yakin ingin menghapus dokumen ini? Data akan masuk ke arsip.')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Hapus
+                    </button>
+                </form>
+                @endif
             </div>
         </div>
 
         <div class="card bg-light mb-4">
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p class="mb-1 text-muted">Tanggal Pergerakan</p>
                         <h6 class="font-weight-bold">{{ \Carbon\Carbon::parse($pergerakan->tanggal_pergerakan)->format('d F Y') }}</h6>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p class="mb-1 text-muted">Tipe Pergerakan</p>
                         <h6>
                             @if(strtolower($pergerakan->tipe_pergerakan) == 'masuk')
-                                <span class="badge bg-success">Barang Masuk</span>
+                                <span class="badge bg-success text-white">Barang Masuk</span>
                             @elseif(strtolower($pergerakan->tipe_pergerakan) == 'keluar')
-                                <span class="badge bg-danger">Barang Keluar</span>
+                                <span class="badge bg-danger text-white">Barang Keluar</span>
                             @else
                                 <span class="badge bg-warning text-dark">Penyesuaian</span>
                             @endif
                         </h6>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <p class="mb-1 text-muted">Dicatat Oleh</p>
+                        <h6 class="font-weight-bold">
+                            <i class="fas fa-user-circle text-secondary mr-1"></i>
+                            {{ session('user_name') ?? 'N/A' }}
+                            <small class="text-muted">({{ session('user_role') }})</small>
+                        </h6>
+                    </div>
+                    <div class="col-md-3">
                         <p class="mb-1 text-muted">Catatan</p>
                         <h6>{{ $pergerakan->catatan ?? '-' }}</h6>
                     </div>

@@ -14,6 +14,9 @@
             <h4 class="mb-0 text-secondary"><i class="fas fa-history"></i> Riwayat Pergerakan Stok</h4>
             <div>
                 @if(session('user_role') === 'admin')
+                <a href="{{ route('stok.archive') }}" class="btn btn-secondary mr-2">
+                    <i class="fas fa-archive"></i> Arsip
+                </a>
                 <button type="button" class="btn btn-success mr-2" data-toggle="modal" data-target="#modalExportExcel">
                     <i class="fas fa-file-excel"></i> Export Excel
                 </button>
@@ -73,9 +76,19 @@
                         <td>{{ $item->catatan ?? '-' }}</td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center">
-                                <a href="{{ route('stok.show', $item->id_pergerakan) }}" class="btn btn-sm btn-info text-white">
+                                <a href="{{ route('stok.show', $item->id_pergerakan) }}" class="btn btn-sm btn-info text-white mr-1">
                                     <i class="fas fa-eye"></i> Detail
                                 </a>
+                                @if(session('user_role') === 'admin')
+                                <form action="{{ route('stok.destroy', $item->id_pergerakan) }}" method="POST"
+                                    onsubmit="return confirm('Yakin ingin menghapus dokumen ini? Data akan masuk ke arsip.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-trash-alt"></i> Hapus
+                                    </button>
+                                </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

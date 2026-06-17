@@ -53,7 +53,7 @@
 
                 <div class="col-md-3">
                     <button type="button" onclick="tambahItem()" class="btn btn-primary w-100">
-                        <i class="mdi mdi-cart-plus me-1"></i> + Tambah Ke Keranjang
+                        <i class="mdi mdi-cart-plus me-1"></i> Tambah Ke Keranjang
                     </button>
                 </div>
             </div>
@@ -103,7 +103,7 @@ $(document).ready(function() {
     });
 
     // Event handler jQuery Select2 untuk mendeteksi perubahan produk
-    $('#produk').on('select2:select', function (e) {
+    $('#produk').on('change', function () {
         updateInfoStok();
     });
 });
@@ -129,9 +129,9 @@ function updateInfoStok() {
         return;
     }
     
-    let stokTersedia = selected.data('stok');
+    let stokTersedia = selected.attr('data-stok');
     let namaSatuan = selected.data('satuan');
-    document.getElementById('info-stok').value = stokTersedia + " " + namaSatuan;
+    document.getElementById('info-stok').value = (stokTersedia !== undefined ? stokTersedia : "0") + " " + namaSatuan;
 }
 
 function tambahItem() {
@@ -146,7 +146,7 @@ function tambahItem() {
     let harga = parseInt(selected.data('harga'));
     let qty = parseInt(document.getElementById('qty').value);
     
-    let maxStok = parseInt(selected.data('stok'));
+    let maxStok = parseInt(selected.attr('data-stok'));
     let satuan = selected.data('satuan');
 
     if (isNaN(qty) || qty < 1) {
@@ -186,8 +186,8 @@ function tambahItem() {
     document.querySelector('#tableItem tbody').insertAdjacentHTML('beforeend', row);
     document.getElementById('total').innerText = total.toLocaleString();
     
-    // Potong sisa data stok di sisi client menggunakan jQuery data method
-    selected.data('stok', maxStok - qty);
+    // Potong sisa data stok di sisi client menggunakan jQuery attr method agar merubah DOM HTML asli
+    selected.attr('data-stok', maxStok - qty);
     updateInfoStok();
 
     itemIndex++; 
@@ -205,8 +205,8 @@ function hapusItem(btn, subtotal, id, qty) {
     // Kembalikan stok menggunakan pencarian elemen option jQuery
     let option = $('#produk').find(`option[value="${id}"]`);
     if(option.length) {
-        let currentStok = parseInt(option.data('stok'));
-        option.data('stok', currentStok + parseInt(qty));
+        let currentStok = parseInt(option.attr('data-stok'));
+        option.attr('data-stok', currentStok + parseInt(qty));
     }
     
     updateInfoStok();

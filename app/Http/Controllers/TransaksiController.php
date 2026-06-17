@@ -19,7 +19,10 @@ class TransaksiController extends Controller
     public function index(Request $request)
     {
         // 1. Mengambil semua data transaksi utama untuk tabel bagian atas
-        $transaksi = Transaksi::latest()->get();
+        $transaksi = Transaksi::with([
+            'detailTransaksi.satuanProduk' => function ($q) { $q->withTrashed(); },
+            'detailTransaksi.satuanProduk.produk' => function ($q) { $q->withTrashed(); }
+        ])->latest()->get();
 
         $filter = $request->input('filter', 'all');
 
@@ -68,7 +71,7 @@ class TransaksiController extends Controller
 
     public function create()
     {
-        $produk = SatuanProduk::with('produk')->get();
+        $produk = SatuanProduk::with('produk')->whereHas('produk')->get();
         return view('backend.transaksi.create', compact('produk'));
     }
 
@@ -240,5 +243,18 @@ class TransaksiController extends Controller
         $namaFile = 'Laporan_Transaksi_' . $start . '_sd_' . $end . '.xlsx';
 
         return Excel::download(new TransaksiExport($start, $end), $namaFile);
+    }
+
+    public function archive()
+    {
+        $transaksi = Transaksi::onlyTrashed()->get();
+        return view('backend.transaksi.archive', compact('transaksi'));
+    }
+
+    public function restore($id)
+    {
+        $transaksi = Transaksi::withTrashed()->findOrFail($id);
+        $transaksi->restore();
+        return redirect()->route('transaksi.archive')->with('success', 'Transaksi berhasil dipulihkan.');
     }
 }

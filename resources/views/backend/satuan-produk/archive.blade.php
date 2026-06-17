@@ -6,19 +6,11 @@
         <div class="card-body">
 
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="mb-0 fw-bold text-dark">Daftar Satuan Produk</h3>
-                @if(session('user_role') === 'admin')
-                    <div>
-                        <a href="{{ route('satuan-produk.archive') }}" class="btn btn-secondary shadow-sm mr-2">
-                            <i class="fas fa-archive"></i> Arsip
-                        </a>
-                        <a href="{{ route('satuan-produk.create') }}" class="btn btn-primary shadow-sm">
-                            <i class="fas fa-plus"></i> Tambah Satuan Produk
-                        </a>
-                    </div>
-                @endif
+                <h3 class="mb-0 fw-bold text-dark">Arsip Satuan Produk</h3>
+                <a href="{{ route('satuan-produk.index') }}" class="btn btn-secondary shadow-sm">
+                    <i class="fas fa-arrow-left"></i> Kembali
+                </a>
             </div>
-
 
             <div class="table-responsive">
                 <table class="table table-hover table-bordered align-middle custom-datatable">
@@ -62,17 +54,11 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center">
                                         @if(session('user_role') === 'admin')
-                                            <a href="{{ route('satuan-produk.edit', $d->id_satuan) }}"
-                                                class="btn btn-sm btn-warning text-white mr-1">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </a>
-
-                                            <form action="{{ route('satuan-produk.destroy', $d->id_satuan) }}" method="POST"
-                                                onsubmit="return confirm('Yakin ingin menghapus data ini?')">
+                                            <form action="{{ route('satuan-produk.restore', $d->id_satuan) }}" method="POST"
+                                                onsubmit="return confirm('Yakin ingin memulihkan data ini?')">
                                                 @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-danger">
-                                                    <i class="fas fa-trash-alt"></i> Hapus
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-trash-restore"></i> Pulihkan
                                                 </button>
                                             </form>
                                         @endif
@@ -82,7 +68,7 @@
                         @empty
                             <tr>
                                 <td colspan="6" class="text-center">
-                                    Data belum ada
+                                    Data arsip belum ada
                                 </td>
                             </tr>
                         @endforelse

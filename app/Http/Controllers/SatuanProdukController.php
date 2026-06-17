@@ -82,4 +82,17 @@ class SatuanProdukController extends Controller
         return redirect()->route('satuan-produk.index')
             ->with('success', 'Data berhasil dihapus');
     }
+
+    public function archive()
+    {
+        $data = SatuanProduk::with('produk')->onlyTrashed()->get();
+        return view('backend.satuan-produk.archive', compact('data'));
+    }
+
+    public function restore($id)
+    {
+        $data = SatuanProduk::withTrashed()->findOrFail($id);
+        $data->restore();
+        return redirect()->route('satuan-produk.archive')->with('success', 'Satuan Produk berhasil dipulihkan.');
+    }
 }

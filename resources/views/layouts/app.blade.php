@@ -254,6 +254,12 @@
                         <span>Pengguna</span>
                     </a>
                     @endif
+
+                    <div class="menu-heading">Pengaturan</div>
+                    <a class="nav-menu-item {{ Request::routeIs('profil.*') ? 'active' : '' }}" href="{{ route('profil.edit') }}">
+                        <i class="mdi mdi-account"></i>
+                        <span>Pengaturan Akun</span>
+                    </a>
                  </nav>
             </div>
             <div class="px-3 py-3" style="border-top:1px solid #f0f0f0;">

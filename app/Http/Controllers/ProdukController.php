@@ -194,11 +194,22 @@ class ProdukController extends Controller
     {
         $produk = Produk::findOrFail($id);
 
-        if ($produk->direktori_gambar && Storage::disk('public')->exists($produk->direktori_gambar)) {
-            Storage::disk('public')->delete($produk->direktori_gambar);
-        }
-
+        // Jangan hapus gambar dari storage saat soft delete, 
+        // hanya ketika hard delete (jika ada).
         $produk->delete();
         return redirect()->route('produk.index')->with('success', 'Produk dihapus');
+    }
+
+    public function archive()
+    {
+        $produk = Produk::with('kategori')->onlyTrashed()->get();
+        return view('backend.produk.archive', compact('produk'));
+    }
+
+    public function restore($id)
+    {
+        $produk = Produk::withTrashed()->findOrFail($id);
+        $produk->restore();
+        return redirect()->route('produk.archive')->with('success', 'Produk berhasil dipulihkan.');
     }
 }

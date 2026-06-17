@@ -69,7 +69,7 @@
                                     <option value="">-- Cari Produk --</option>
                                     @foreach($satuanProduk as $sp)
                                         <option value="{{ $sp->id_satuan }}">
-                                            [{{ $sp->produk->kode_barang }}] {{ $sp->produk->nama_produk }} - {{ $sp->nama_satuan }}
+                                            [{{ $sp->produk->kode_produk }}] {{ $sp->produk->nama_produk }} - {{ $sp->nama_satuan }}
                                         </option>
                                     @endforeach
                                 </select>

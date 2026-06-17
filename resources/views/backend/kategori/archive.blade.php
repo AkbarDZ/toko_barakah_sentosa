@@ -6,17 +6,10 @@
         <div class="card-body">
 
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3 class="mb-0 fw-bold text-dark">Daftar Kategori</h3>
-                @if(session('user_role') === 'admin')
-                    <div>
-                        <a href="{{ route('kategori.archive') }}" class="btn btn-secondary shadow-sm mr-2">
-                            <i class="fas fa-archive"></i> Arsip
-                        </a>
-                        <a href="{{ route('kategori.create') }}" class="btn btn-primary shadow-sm">
-                            <i class="fas fa-plus"></i> Tambah Kategori
-                        </a>
-                    </div>
-                @endif
+                <h3 class="mb-0 fw-bold text-dark">Arsip Kategori</h3>
+                <a href="{{ route('kategori.index') }}" class="btn btn-secondary shadow-sm">
+                    <i class="fas fa-arrow-left"></i> Kembali
+                </a>
             </div>
 
             <div class="table-responsive">
@@ -40,17 +33,11 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center">
                                         @if(session('user_role') === 'admin')
-                                            <a href="{{ route('kategori.edit', $k->id_kategori) }}"
-                                                class="btn btn-sm btn-warning text-white mr-1">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </a>
-
-                                            <form action="{{ route('kategori.destroy', $k->id_kategori) }}" method="POST"
-                                                onsubmit="return confirm('Yakin hapus data?')">
+                                            <form action="{{ route('kategori.restore', $k->id_kategori) }}" method="POST"
+                                                onsubmit="return confirm('Yakin pulihkan data?')">
                                                 @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-danger">
-                                                    <i class="fas fa-trash-alt"></i> Hapus
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="fas fa-trash-restore"></i> Pulihkan
                                                 </button>
                                             </form>
                                         @endif
@@ -59,8 +46,8 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted">
-                                    <p class="mb-0">Data kategori belum tersedia.</p>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    <p class="mb-0">Data arsip kategori belum tersedia.</p>
                                 </td>
                             </tr>
                         @endforelse

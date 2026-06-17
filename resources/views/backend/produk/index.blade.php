@@ -30,9 +30,14 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
             <h3 class="mb-0 fw-bold text-dark">Daftar Produk</h3>
             @if(session('user_role') === 'admin')
-            <a href="{{ route('produk.create') }}" class="btn btn-primary shadow-sm">
-                <i class="fas fa-plus"></i> Tambah Produk
-            </a>
+            <div>
+                <a href="{{ route('produk.archive') }}" class="btn btn-secondary shadow-sm mr-2">
+                    <i class="fas fa-archive"></i> Arsip
+                </a>
+                <a href="{{ route('produk.create') }}" class="btn btn-primary shadow-sm">
+                    <i class="fas fa-plus"></i> Tambah Produk
+                </a>
+            </div>
             @endif
         </div>
 

@@ -61,7 +61,7 @@ class PergerakanStokController extends Controller
     public function create()
     {
         // Mengambil data satuan beserta produknya untuk pilihan di form
-        $satuanProduk = SatuanProduk::with('produk')->get();
+        $satuanProduk = SatuanProduk::with('produk')->whereHas('produk')->get();
         return view('backend.stok.create', compact('satuanProduk'));
     }
 
@@ -196,5 +196,25 @@ class PergerakanStokController extends Controller
         $namaFile = 'Laporan_Mutasi_Stok_' . $start . '_sd_' . $end . '.xlsx';
 
         return Excel::download(new PergerakanStokExport($start, $end), $namaFile);
+    }
+
+    public function destroy($id)
+    {
+        $pergerakan = PergerakanStok::findOrFail($id);
+        $pergerakan->delete();
+        return redirect()->route('stok.index')->with('success', 'Dokumen pergerakan stok berhasil dihapus.');
+    }
+
+    public function archive()
+    {
+        $pergerakan = PergerakanStok::onlyTrashed()->get();
+        return view('backend.stok.archive', compact('pergerakan'));
+    }
+
+    public function restore($id)
+    {
+        $pergerakan = PergerakanStok::withTrashed()->findOrFail($id);
+        $pergerakan->restore();
+        return redirect()->route('stok.archive')->with('success', 'Data Stok berhasil dipulihkan.');
     }
 }

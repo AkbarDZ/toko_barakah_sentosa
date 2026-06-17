@@ -63,4 +63,17 @@ class KategoriController extends Controller
         return redirect()->route('kategori.index')
             ->with('success', 'Kategori berhasil dihapus');
     }
+
+    public function archive()
+    {
+        $kategori = Kategori::onlyTrashed()->get();
+        return view('backend.kategori.archive', compact('kategori'));
+    }
+
+    public function restore($id)
+    {
+        $kategori = Kategori::withTrashed()->findOrFail($id);
+        $kategori->restore();
+        return redirect()->route('kategori.archive')->with('success', 'Kategori berhasil dipulihkan.');
+    }
 }

@@ -14,6 +14,9 @@
                 <h4 class="mb-0 text-secondary"><i class="fas fa-history"></i> Data Transaksi</h4>
                 <div>
                     @if(session('user_role') === 'admin')
+                    <a href="{{ route('transaksi.archive') }}" class="btn btn-secondary mr-2">
+                        <i class="fas fa-archive"></i> Arsip
+                    </a>
                     <button type="button" class="btn btn-success mr-2" data-toggle="modal" data-target="#modalExportExcel">
                         <i class="fas fa-file-excel"></i> Export Excel
                     </button>
