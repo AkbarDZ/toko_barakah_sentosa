@@ -2,27 +2,30 @@
 
 @section('content')
 
-{{-- Bagian alert pesan error jika ada --}}
+{{-- Bagian alert pesan error dari session --}}
 @if(session('error'))
     <div class="alert alert-danger mb-3">{{ session('error') }}</div>
 @endif
 
+{{-- TEMPAT ALERT DINAMIS JAVASCRIPT --}}
+<div id="js-alert-container"></div>
+
 <div class="card">
     <div class="card-body">
 
-        <h3>Kasir</h3>
+        <h3>Kasir / Transaksi Baru</h3>
 
         <form action="{{ route('transaksi.store') }}" method="POST">
             @csrf
 
-            <div class="row mb-3">
+            <div class="row mb-3 align-items-end">
                 <div class="col-md-4">
-                    <label>Pilih Produk</label>
-                    <select id="produk" class="form-control" onchange="updateInfoStok()">
-                        <option value="">-- pilih --</option>
+                    <label class="form-label">Pilih Produk</label>
+                    {{-- Menggunakan class 'use-select2' sesuai dengan contoh acuan --}}
+                    <select id="produk" class="form-control use-select2">
+                        <option value="">-- Pilih Produk --</option>
                         @foreach($produk as $p)
                             @php
-                                // Mengambil sisa stok fisik dan hitung batas konversi berdasarkan satuannya
                                 $stokFisik = $p->produk->total_stok_terkecil ?? 0;
                                 $pengali = $p->kuantiti_per_satuan ?? 1;
                                 $stokKonversi = $pengali > 0 ? floor($stokFisik / $pengali) : 0;
@@ -38,20 +41,19 @@
                     </select>
                 </div>
 
-                {{-- TEMPAT BUAT LIAT ADA BERAPA STOK BARANG (DI SEBELAH QTY) --}}
                 <div class="col-md-2">
-                    <label>Sisa Stok</label>
-                    <input type="text" id="info-stok" class="form-control" readonly value="0" style="background-color: #e9ecef; font-weight: bold; text-center;">
+                    <label class="form-label">Sisa Stok</label>
+                    <input type="text" id="info-stok" class="form-control" readonly value="0" style="background-color: #e9ecef; font-weight: bold; text-align: center;">
                 </div>
 
                 <div class="col-md-3">
-                    <label>Qty</label>
+                    <label class="form-label">Qty</label>
                     <input type="number" id="qty" class="form-control" min="1" value="1">
                 </div>
 
-                <div class="col-md-3 d-flex align-items-end">
+                <div class="col-md-3">
                     <button type="button" onclick="tambahItem()" class="btn btn-primary w-100">
-                        + Tambah
+                        <i class="mdi mdi-cart-plus me-1"></i> + Tambah Ke Keranjang
                     </button>
                 </div>
             </div>
@@ -68,21 +70,21 @@
                         <th>Aksi</th>
                     </tr>
                 </thead>
-
                 <tbody></tbody>
             </table>
 
-            <h4>Total: Rp <span id="total">0</span></h4>
+            <h4 class="mt-3">Total Tagihan: Rp <span id="total">0</span></h4>
 
-            <div class="mt-3">
-                <label>Bayar</label>
-                <input type="number" name="jumlah_bayar" id="bayar" class="form-control">
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <label class="form-label">Nominal Bayar (Rp)</label>
+                    <input type="number" name="jumlah_bayar" id="bayar" class="form-control" placeholder="Masukkan jumlah uang">
+                </div>
             </div>
 
-            <button class="btn btn-success mt-3">
+            <button type="submit" class="btn btn-success mt-3">
                 Simpan Transaksi
             </button>
-
         </form>
 
     </div>
@@ -92,45 +94,74 @@
 let total = 0;
 let itemIndex = 0; 
 
-// Fungsi baru untuk memunculkan angka stok saat produk dipilih di dropdown
+$(document).ready(function() {
+    // Re-inisialisasi/Pastikan select2 terpasang dengan tema bootstrap yang benar
+    $('.use-select2').select2({
+        theme: 'bootstrap4', 
+        width: '100%',
+        placeholder: '-- Pilih Produk --'
+    });
+
+    // Event handler jQuery Select2 untuk mendeteksi perubahan produk
+    $('#produk').on('select2:select', function (e) {
+        updateInfoStok();
+    });
+});
+
+function tampilkanAlert(pesan, tipe = 'danger') {
+    let alertContainer = document.getElementById('js-alert-container');
+    let htmlAlert = `
+        <div class="alert alert-${tipe} alert-dismissible fade show border-0 shadow-sm mb-3" role="alert">
+            <strong>Peringatan:</strong> ${pesan}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="float: right; background: none; border: none; font-weight: bold; color: inherit;">X</button>
+        </div>
+    `;
+    alertContainer.innerHTML = htmlAlert;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function updateInfoStok() {
-    let select = document.getElementById('produk');
-    let selected = select.options[select.selectedIndex];
+    // Menggunakan jQuery agar sinkron dengan manipulasi DOM dari Select2
+    let selected = $('#produk').find(':selected');
     
-    if (!selected.value) {
+    if (!selected.val()) {
         document.getElementById('info-stok').value = "0";
         return;
     }
     
-    let stokTersedia = selected.dataset.stok;
-    let namaSatuan = selected.dataset.satuan;
+    let stokTersedia = selected.data('stok');
+    let namaSatuan = selected.data('satuan');
     document.getElementById('info-stok').value = stokTersedia + " " + namaSatuan;
 }
 
 function tambahItem() {
-    let select = document.getElementById('produk');
-    let selected = select.options[select.selectedIndex];
+    let selected = $('#produk').find(':selected');
 
-    let id = selected.value;
-    let nama = selected.dataset.nama;
-    let harga = parseInt(selected.dataset.harga);
+    if (!selected.val()) {
+        return tampilkanAlert('Silahkan pilih produk terlebih dahulu melalui kolom pencarian!');
+    }
+
+    let id = selected.val();
+    let nama = selected.data('nama');
+    let harga = parseInt(selected.data('harga'));
     let qty = parseInt(document.getElementById('qty').value);
     
-    // Ambil data stok & nama satuan dari atribut data HTML
-    let maxStok = parseInt(selected.dataset.stok);
-    let satuan = selected.dataset.satuan;
+    let maxStok = parseInt(selected.data('stok'));
+    let satuan = selected.data('satuan');
 
-    if (!id) return alert('Pilih produk dulu');
+    if (isNaN(qty) || qty < 1) {
+        return tampilkanAlert('Isi kuantitas (Qty) belanja dengan benar minimal 1!');
+    }
 
-    // 1. Peringatan Validasi jika stok di database kosong/habis
     if (maxStok <= 0) {
-        return alert('Peringatan: Stok anda habis!');
+        return tampilkanAlert(`Stok untuk produk <strong>${nama}</strong> sudah habis!`, 'danger');
     }
 
-    // 2. Peringatan Validasi jika input qty kasir melebihi kapasitas stok barang
     if (qty > maxStok) {
-        return alert('Peringatan: Stok tidak mencukupi! Sisa stok tersedia: ' + maxStok + ' ' + satuan);
+        return tampilkanAlert(`Stok tidak mencukupi! Sisa stok <strong>${nama}</strong> tersedia hanya: ${maxStok} ${satuan}`, 'warning');
     }
+
+    document.getElementById('js-alert-container').innerHTML = '';
 
     let subtotal = harga * qty;
     total += subtotal;
@@ -139,8 +170,8 @@ function tambahItem() {
         <tr>
             <td>${nama} (${satuan})</td>
             <td>${qty}</td>
-            <td>${harga}</td>
-            <td>${subtotal}</td>
+            <td>Rp ${harga.toLocaleString()}</td>
+            <td>Rp ${subtotal.toLocaleString()}</td>
             <td>
                 <button type="button" onclick="hapusItem(this, ${subtotal}, '${id}', ${qty})" class="btn btn-danger btn-sm">
                     Hapus
@@ -153,30 +184,31 @@ function tambahItem() {
     `;
 
     document.querySelector('#tableItem tbody').insertAdjacentHTML('beforeend', row);
-    document.getElementById('total').innerText = total;
+    document.getElementById('total').innerText = total.toLocaleString();
     
-    // Potong data kuantitas di halaman web sementara supaya tidak bisa over-input di baris berikutnya
-    selected.dataset.stok = maxStok - qty;
+    // Potong sisa data stok di sisi client menggunakan jQuery data method
+    selected.data('stok', maxStok - qty);
     updateInfoStok();
 
     itemIndex++; 
-    document.getElementById('qty').value = 1; // Reset input qty ke 1
+    document.getElementById('qty').value = 1; 
+    
+    // Reset Select2 ke posisi default awal setelah sukses tambah data
+    $('.use-select2').val('').trigger('change');
 }
 
 function hapusItem(btn, subtotal, id, qty) {
     btn.closest('tr').remove();
     total -= subtotal;
-    document.getElementById('total').innerText = total;
+    document.getElementById('total').innerText = total.toLocaleString();
 
-    // Kembalikan jumlah stok di dropdown jika item keranjang dihapus
-    let select = document.getElementById('produk');
-    for (let i = 0; i < select.options.length; i++) {
-        if (select.options[i].value == id) {
-            let currentStok = parseInt(select.options[i].dataset.stok);
-            select.options[i].dataset.stok = currentStok + parseInt(qty);
-            break;
-        }
+    // Kembalikan stok menggunakan pencarian elemen option jQuery
+    let option = $('#produk').find(`option[value="${id}"]`);
+    if(option.length) {
+        let currentStok = parseInt(option.data('stok'));
+        option.data('stok', currentStok + parseInt(qty));
     }
+    
     updateInfoStok();
 }
 </script>

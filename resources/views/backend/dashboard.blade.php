@@ -100,12 +100,17 @@
                                                 <small class="text-muted fw-normal" style="font-size: 0.65rem;">({{ $p->kode_produk }})</small>
                                             </p>
                                             <div class="mt-auto">
-                                                @foreach($p->satuanProduk as $sp)
+                                                @forelse($p->satuanProduk as $sp)
                                                     <span class="badge bg-light text-dark border mb-1 w-100 text-truncate text-start d-block px-2"
                                                         style="font-size: 0.65rem;" title="{{ $sp->nama_satuan }}: Rp {{ number_format($sp->harga_jual, 0, ',', '.') }}">
                                                         {{ $sp->nama_satuan }}: Rp {{ number_format($sp->harga_jual, 0, ',', '.') }}
                                                     </span>
-                                                @endforeach
+                                                @empty
+                                                    <span class="badge bg-light text-dark border mb-1 w-100 text-truncate text-start d-block px-2"
+                                                        style="font-size: 0.65rem;" title="Tidak ada satuan">
+                                                        Harga belum diatur
+                                                    </span>
+                                                @endforelse
                                             </div>
                                         </div>
                                     </div>

@@ -13,9 +13,11 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0 text-secondary"><i class="fas fa-history"></i> Riwayat Pergerakan Stok</h4>
             <div>
+                @if(session('user_role') === 'admin')
                 <button type="button" class="btn btn-success mr-2" data-toggle="modal" data-target="#modalExportExcel">
                     <i class="fas fa-file-excel"></i> Export Excel
                 </button>
+                @endif
                 <a href="{{ route('stok.create') }}" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Catat Pergerakan Baru
                 </a>

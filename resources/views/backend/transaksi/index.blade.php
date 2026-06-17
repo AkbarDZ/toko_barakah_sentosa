@@ -13,9 +13,11 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4 class="mb-0 text-secondary"><i class="fas fa-history"></i> Data Transaksi</h4>
                 <div>
+                    @if(session('user_role') === 'admin')
                     <button type="button" class="btn btn-success mr-2" data-toggle="modal" data-target="#modalExportExcel">
                         <i class="fas fa-file-excel"></i> Export Excel
                     </button>
+                    @endif
                     <a href="{{ route('transaksi.create') }}" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Tambah Transaksi Baru
                     </a>
@@ -108,9 +110,26 @@
     <div class="card shadow-sm">
         <div class="card-body">
 
-            <h4 class="mb-3 text-secondary">
-                <i class="fas fa-chart-line"></i> Live Penjualan Produk
-            </h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0 text-secondary">
+                    <i class="fas fa-chart-line"></i> Live Penjualan Produk
+                </h4>
+                <div class="d-flex align-items-center">
+                    <form action="{{ route('transaksi.index') }}" method="GET" class="d-flex align-items-center mr-3" style="margin-right: 15px;">
+                        <input type="hidden" name="filter" value="custom">
+                        <input type="date" name="start_date" class="form-control form-control-sm mr-2" value="{{ request('start_date') }}" required style="width: auto; margin-right: 5px;">
+                        <span class="mr-2" style="margin-right: 5px;">-</span>
+                        <input type="date" name="end_date" class="form-control form-control-sm mr-2" value="{{ request('end_date') }}" required style="width: auto; margin-right: 5px;">
+                        <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                    </form>
+                    <div class="btn-group" role="group">
+                        <a href="{{ route('transaksi.index', ['filter' => 'today']) }}" class="btn btn-sm btn-outline-primary {{ request('filter') == 'today' ? 'active' : '' }}">Hari Ini</a>
+                        <a href="{{ route('transaksi.index', ['filter' => 'this_month']) }}" class="btn btn-sm btn-outline-primary {{ request('filter') == 'this_month' ? 'active' : '' }}">Bulan Ini</a>
+                        <a href="{{ route('transaksi.index', ['filter' => 'this_year']) }}" class="btn btn-sm btn-outline-primary {{ request('filter') == 'this_year' ? 'active' : '' }}">Tahun Ini</a>
+                        <a href="{{ route('transaksi.index', ['filter' => 'all']) }}" class="btn btn-sm btn-outline-primary {{ request('filter') == 'all' || (!request()->has('filter') && request('filter') != 'custom') ? 'active' : '' }}">Semua</a>
+                    </div>
+                </div>
+            </div>
 
             <div class="table-responsive">
                 <table class="table table-hover table-bordered custom-datatable">

@@ -222,6 +222,7 @@
                         <span>Dashboard</span>
                     </a>
 
+                    @if(session('user_role') === 'admin')
                     <div class="menu-heading">Manajemen Barang</div>
                     <a class="nav-menu-item {{ Request::routeIs('produk.*') ? 'active' : '' }}" href="{{ route('produk.index') }}">
                         <i class="mdi mdi-cube"></i>
@@ -235,6 +236,7 @@
                         <i class="mdi mdi-playlist-check"></i>
                         <span>Satuan</span>
                     </a>
+                    @endif
 
                     <div class="menu-heading">Kasir & Gudang</div>
                     <a class="nav-menu-item {{ Request::routeIs('transaksi.*') ? 'active' : '' }}" href="{{ route('transaksi.index') }}">
@@ -245,6 +247,13 @@
                         <i class="mdi mdi-database"></i>
                         <span>Stok</span>
                     </a>
+                    @if(session('user_role') === 'admin')
+                    <div class="menu-heading">Manajemen Pengguna</div>
+                    <a class="nav-menu-item {{ Request::routeIs('pengguna.*') ? 'active' : '' }}" href="{{ route('pengguna.index') }}">
+                        <i class="mdi mdi-account"></i>
+                        <span>Pengguna</span>
+                    </a>
+                    @endif
                  </nav>
             </div>
             <div class="px-3 py-3" style="border-top:1px solid #f0f0f0;">

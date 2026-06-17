@@ -16,13 +16,15 @@ class TransaksiController extends Controller
     /**
      * Menampilkan daftar transaksi dan live akumulasi penjualan produk
      */
-    public function index()
+    public function index(Request $request)
     {
         // 1. Mengambil semua data transaksi utama untuk tabel bagian atas
         $transaksi = Transaksi::latest()->get();
 
+        $filter = $request->input('filter', 'all');
+
         // 2. Mengambil data Live Penjualan Produk (Murni Qty Terjual di Nota Kasir)
-        $livePenjualan = DB::table('detail_transaksi')
+        $query = DB::table('detail_transaksi')
             ->join('satuan_produk', 'detail_transaksi.id_satuan', '=', 'satuan_produk.id_satuan')
             ->join('produk', 'satuan_produk.id_produk', '=', 'produk.id_produk')
             ->select(
@@ -32,8 +34,23 @@ class TransaksiController extends Controller
                 DB::raw('SUM(detail_transaksi.kuantiti) as total_qty_terjual'), // Qty asli terjual
                 DB::raw('SUM(detail_transaksi.subtotal) as total_omset'),
                 DB::raw('SUM(detail_transaksi.keuntungan) as total_keuntungan')
-            )
-            ->groupBy('produk.id_produk', 'produk.kode_produk', 'produk.nama_produk', 'satuan_produk.nama_satuan')
+            );
+
+        if ($filter == 'this_month') {
+            $query->whereMonth('detail_transaksi.created_at', date('m'))
+                  ->whereYear('detail_transaksi.created_at', date('Y'));
+        } elseif ($filter == 'this_year') {
+            $query->whereYear('detail_transaksi.created_at', date('Y'));
+        } elseif ($filter == 'today') {
+            $query->whereDate('detail_transaksi.created_at', date('Y-m-d'));
+        } elseif ($filter == 'custom') {
+            if ($request->has('start_date') && $request->has('end_date')) {
+                $query->whereDate('detail_transaksi.created_at', '>=', $request->start_date)
+                      ->whereDate('detail_transaksi.created_at', '<=', $request->end_date);
+            }
+        }
+
+        $livePenjualan = $query->groupBy('produk.id_produk', 'produk.kode_produk', 'produk.nama_produk', 'satuan_produk.nama_satuan')
             ->get()
             ->map(function ($item) {
                 return [
@@ -46,7 +63,7 @@ class TransaksiController extends Controller
                 ];
             });
 
-        return view('backend.transaksi.index', compact('transaksi', 'livePenjualan'));
+        return view('backend.transaksi.index', compact('transaksi', 'livePenjualan', 'filter'));
     }
 
     public function create()

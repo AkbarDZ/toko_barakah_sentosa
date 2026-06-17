@@ -9,7 +9,7 @@
                 <h3 class="mb-0 fw-bold text-dark">Daftar Satuan Produk</h3>
                 @if(session('user_role') === 'admin')
                     <a href="{{ route('satuan-produk.create') }}" class="btn btn-primary shadow-sm">
-                        <i class="fas fa-plus"></i> + Tambah Satuan Produk
+                        <i class="fas fa-plus"></i> Tambah Satuan Produk
                     </a>
                 @endif
             </div>

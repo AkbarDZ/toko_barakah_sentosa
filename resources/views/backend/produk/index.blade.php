@@ -31,7 +31,7 @@
             <h3 class="mb-0 fw-bold text-dark">Daftar Produk</h3>
             @if(session('user_role') === 'admin')
             <a href="{{ route('produk.create') }}" class="btn btn-primary shadow-sm">
-                <i class="fas fa-plus"></i> + Tambah Produk
+                <i class="fas fa-plus"></i> Tambah Produk
             </a>
             @endif
         </div>
