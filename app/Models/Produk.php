@@ -16,6 +16,16 @@ class Produk extends Model
     // Kosongkan guarded agar tidak ada kolom yang diblokir oleh Laravel
     protected $guarded = []; 
 
+    protected $appends = ['gambar_url'];
+
+    public function getGambarUrlAttribute()
+    {
+        if ($this->direktori_gambar) {
+            return asset('storage/' . $this->direktori_gambar);
+        }
+        return null;
+    }
+
     public function kategori()
     {
         return $this->belongsTo(Kategori::class, 'id_kategori', 'id_kategori');

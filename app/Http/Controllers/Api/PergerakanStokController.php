@@ -2,32 +2,37 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\PergerakanStokExport;
 use App\Http\Controllers\Controller;
 use App\Models\PergerakanStok;
-use App\Models\DetailPergerakanStok;
-use App\Models\SatuanProduk;
+use App\Models\Produk;
+use App\Services\StockMovementService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use Throwable;
 
 class PergerakanStokController extends Controller
 {
     public function index()
     {
-        $pergerakan = PergerakanStok::orderBy('tanggal_pergerakan', 'desc')->paginate(10);
+        $pergerakan = PergerakanStok::with('detail')
+            ->orderBy('tanggal_pergerakan', 'desc')
+            ->paginate(10);
         $liveStok = $this->getLiveStokData();
-        
+
         return response()->json([
             'success' => true,
             'data' => [
                 'pergerakan' => $pergerakan,
-                'live_stok' => $liveStok
-            ]
+                'live_stok' => $liveStok,
+            ],
         ]);
     }
 
     private function getLiveStokData()
     {
-        $allProducts = \App\Models\Produk::with(['satuanProduk.detailPergerakanStok.pergerakanStok'])->get();
+        $allProducts = Produk::with(['satuanProduk.detailPergerakanStok.pergerakanStok'])->get();
 
         return $allProducts->map(function ($produk) {
             $allDetails = $produk->satuanProduk->flatMap(function ($satuan) {
@@ -37,7 +42,7 @@ class PergerakanStokController extends Controller
             $latestDetail = $allDetails->sortByDesc(function ($detail) {
                 return [
                     $detail->pergerakanStok->tanggal_pergerakan ?? '',
-                    $detail->id_detail
+                    $detail->id_detail,
                 ];
             })->first();
 
@@ -48,108 +53,46 @@ class PergerakanStokController extends Controller
             }
 
             return [
-                'nama_produk'       => $produk->nama_produk,
-                'kode_produk'       => $produk->kode_produk,
-                'stok_sekarang'     => $produk->total_stok_terkecil,
-                'tanggal_terakhir'  => $latestDetail ? $latestDetail->pergerakanStok->tanggal_pergerakan : null,
-                'tipe_terakhir'     => $latestDetail ? strtolower($latestDetail->pergerakanStok->tipe_pergerakan) : null,
-                'jumlah_terakhir'   => $kuantitiTerkecilTerakhir,
+                'nama_produk' => $produk->nama_produk,
+                'kode_produk' => $produk->kode_produk,
+                'stok_sekarang' => $produk->total_stok_terkecil,
+                'tanggal_terakhir' => $latestDetail ? $latestDetail->pergerakanStok->tanggal_pergerakan : null,
+                'tipe_terakhir' => $latestDetail ? strtolower($latestDetail->pergerakanStok->tipe_pergerakan) : null,
+                'jumlah_terakhir' => $kuantitiTerkecilTerakhir,
             ];
         });
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
+    public function store(
+        Request $request,
+        StockMovementService $stockMovementService
+    ) {
+        $validated = $request->validate([
             'tipe_pergerakan' => 'required|in:masuk,keluar,penyesuaian',
             'tanggal_pergerakan' => 'required|date',
-            'catatan' => 'nullable|string',
+            'catatan' => 'nullable|string|max:255',
             'details' => 'required|array|min:1',
             'details.*.id_satuan' => 'required|exists:satuan_produk,id_satuan',
             'details.*.kuantiti' => 'required|integer|min:1',
         ]);
 
         try {
-            $pergerakan = DB::transaction(function () use ($request) {
-                $tipeInput = strtolower($request->tipe_pergerakan);
-
-                $tipeMap = [
-                    'masuk'       => 'IN',
-                    'keluar'      => 'OUT',
-                    'penyesuaian' => 'ADJ'
-                ];
-                $kodeTipe = $tipeMap[$tipeInput];
-                
-                $tahunBulan = date('Ym', strtotime($request->tanggal_pergerakan)); 
-                $prefix = "{$kodeTipe}-{$tahunBulan}-";
-
-                $lastPergerakan = DB::table('pergerakan_stok')
-                    ->where('kode_pergerakan', 'like', $prefix . '%')
-                    ->orderBy('kode_pergerakan', 'desc')
-                    ->lockForUpdate()
-                    ->first();
-
-                $sequence = 1;
-                if ($lastPergerakan) {
-                    $lastSequence = (int) substr($lastPergerakan->kode_pergerakan, -4);
-                    $sequence = $lastSequence + 1;
-                }
-
-                $finalKode = $prefix . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-
-                $pergerakan = PergerakanStok::create([
-                    'kode_pergerakan'    => $finalKode,
-                    'tipe_pergerakan'    => $tipeInput,
-                    'tanggal_pergerakan' => $request->tanggal_pergerakan,
-                    'catatan'            => $request->catatan,
-                ]);
-
-                foreach ($request->details as $item) {
-                    $satuan = SatuanProduk::with('produk')->findOrFail($item['id_satuan']);
-                    $produk = $satuan->produk;
-
-                    $pengali = $satuan->kuantiti_per_satuan ?? 1;
-                    $kuantitiTerkecil = $item['kuantiti'] * $pengali;
-
-                    if ($tipeInput === 'keluar') {
-                        if ($produk->total_stok_terkecil < $kuantitiTerkecil) {
-                            throw new \Exception("Stok tidak mencukupi untuk produk [{$produk->kode_produk}].");
-                        }
-                        $produk->total_stok_terkecil -= $kuantitiTerkecil;
-
-                    } elseif ($tipeInput === 'masuk') {
-                        $produk->total_stok_terkecil += $kuantitiTerkecil;
-
-                    } elseif ($tipeInput === 'penyesuaian') {
-                        $produk->total_stok_terkecil += $kuantitiTerkecil; 
-                    }
-
-                    $produk->save();
-
-                    DetailPergerakanStok::create([
-                        'id_pergerakan' => $pergerakan->id_pergerakan,
-                        'id_satuan'     => $satuan->id_satuan,
-                        'kuantiti'      => $item['kuantiti'],
-                        'snapshot_kode_produk' => $produk->kode_produk, 
-                        'snapshot_nama_produk' => $produk->nama_produk,
-                        'snapshot_nama_satuan' => $satuan->nama_satuan,
-                        'snapshot_harga_beli'  => $satuan->harga_beli ?? 0, 
-                    ]);
-                }
-                
-                return $pergerakan;
-            });
+            $movement = $stockMovementService->create(
+                $validated['tipe_pergerakan'],
+                $validated['tanggal_pergerakan'],
+                $validated['catatan'] ?? null,
+                $validated['details']
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Pergerakan stok berhasil dicatat.',
-                'data' => $pergerakan
+                'data' => $movement,
             ], 201);
-
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }
@@ -157,10 +100,37 @@ class PergerakanStokController extends Controller
     public function show($id)
     {
         $pergerakan = PergerakanStok::with('detail')->findOrFail($id);
-        
+
         return response()->json([
             'success' => true,
-            'data' => $pergerakan
+            'data' => $pergerakan,
         ]);
+    }
+
+    public function cetak($id)
+    {
+        $pergerakan = PergerakanStok::with('detail.satuanProduk')
+            ->findOrFail($id);
+        $fileName = 'Detail_Pergerakan_'.$pergerakan->kode_pergerakan.'.pdf';
+        $pdf = Pdf::loadView('format-dokumen.pdf', compact('pergerakan'))
+            ->setPaper('A4', 'landscape');
+
+        return $pdf->download($fileName);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+        $start = $validated['start_date'];
+        $end = $validated['end_date'];
+        $fileName = "Laporan_Mutasi_Stok_{$start}_sd_{$end}.xlsx";
+
+        return Excel::download(
+            new PergerakanStokExport($start, $end),
+            $fileName
+        );
     }
 }

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\ProdukController;
 use App\Http\Controllers\Api\SatuanProdukController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\PergerakanStokController;
+use App\Http\Controllers\Api\PenggunaController;
+use App\Http\Controllers\Api\ProfilController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,7 +38,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('produk', ProdukController::class);
     Route::apiResource('satuan-produk', SatuanProdukController::class);
 
+    // Pengguna & Profil
+    Route::apiResource('pengguna', PenggunaController::class);
+    Route::get('/profil', [ProfilController::class, 'show']);
+    Route::put('/profil', [ProfilController::class, 'update']);
+
     // Transactions & Stock
+    Route::get('transaksi-export', [TransaksiController::class, 'exportExcel']);
+    Route::get('transaksi/{id}/cetak', [TransaksiController::class, 'cetak']);
     Route::apiResource('transaksi', TransaksiController::class)->except(['update']);
+
+    Route::get('stok-export', [PergerakanStokController::class, 'exportExcel']);
+    Route::get('stok/{id}/cetak', [PergerakanStokController::class, 'cetak']);
     Route::apiResource('stok', PergerakanStokController::class)->except(['update', 'destroy']);
 });

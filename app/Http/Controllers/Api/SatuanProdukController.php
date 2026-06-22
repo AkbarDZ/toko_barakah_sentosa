@@ -45,7 +45,7 @@ class SatuanProdukController extends Controller
     public function show($id)
     {
         $data = SatuanProduk::with('produk')->findOrFail($id);
-        
+
         return response()->json([
             'success' => true,
             'data' => $data

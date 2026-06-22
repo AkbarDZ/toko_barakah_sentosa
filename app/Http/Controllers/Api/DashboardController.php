@@ -13,13 +13,13 @@ class DashboardController extends Controller
         $search = $request->get('search');
 
         $produk = Produk::when($search, function($query) use ($search) {
-                        return $query->where('nama_produk', 'like', "%{$search}%");
-                    })
-                    ->with('satuanProduk') 
-                    ->paginate(12)
-                    ->withQueryString();
+            return $query->where('nama_produk', 'like', "%{$search}%");
+        })
+            ->with('satuanProduk')
+            ->paginate(12)
+            ->withQueryString();
 
-        $produklatest = Produk::orderBy('created_at', 'desc')->take(5)->get(); 
+        $produklatest = Produk::orderBy('created_at', 'desc')->take(5)->get();
 
         return response()->json([
             'success' => true,

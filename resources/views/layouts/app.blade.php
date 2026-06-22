@@ -316,6 +316,8 @@
     <script src="{{ asset('matrix/assets/extra-libs/DataTables/datatables.min.js') }}"></script>
     <script src="{{ asset('mystuffs/universal.js') }}"></script>
 
+    @stack('scripts')
+
     <!-- LOGIKA JAVASCRIPT SLIDE MENU HP -->
     <script>
         $(document).ready(function() {

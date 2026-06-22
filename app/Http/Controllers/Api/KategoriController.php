@@ -35,7 +35,7 @@ class KategoriController extends Controller
     public function show(string $id)
     {
         $kategori = Kategori::findOrFail($id);
-        
+
         return response()->json([
             'success' => true,
             'data' => $kategori

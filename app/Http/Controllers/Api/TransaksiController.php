@@ -2,19 +2,27 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\TransaksiExport;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Transaksi;
 use App\Models\DetailTransaksi;
-use App\Models\SatuanProduk;
 use App\Models\PergerakanStok;
+use App\Models\Produk;
+use App\Models\SatuanProduk;
+use App\Models\Transaksi;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
+use Throwable;
 
 class TransaksiController extends Controller
 {
     public function index()
     {
-        $transaksi = Transaksi::latest()->get();
+        $transaksi = Transaksi::with([
+            'detailTransaksi.satuanProduk.produk',
+        ])->latest()->get();
 
         $livePenjualan = DB::table('detail_transaksi')
             ->join('satuan_produk', 'detail_transaksi.id_satuan', '=', 'satuan_produk.id_satuan')
@@ -22,8 +30,8 @@ class TransaksiController extends Controller
             ->select(
                 'produk.kode_produk',
                 'produk.nama_produk',
-                'satuan_produk.nama_satuan as satuan_jual', 
-                DB::raw('SUM(detail_transaksi.kuantiti) as total_qty_terjual'), 
+                'satuan_produk.nama_satuan as satuan_jual',
+                DB::raw('SUM(detail_transaksi.kuantiti) as total_qty_terjual'),
                 DB::raw('SUM(detail_transaksi.subtotal) as total_omset'),
                 DB::raw('SUM(detail_transaksi.keuntungan) as total_keuntungan')
             )
@@ -51,137 +59,177 @@ class TransaksiController extends Controller
 
     public function store(Request $request)
     {
-        if (!$request->has('produk') || empty($request->produk)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Silahkan pilih produk dan tambahkan ke keranjang terlebih dahulu.'
-            ], 400);
-        }
+        $validated = $request->validate([
+            'produk' => 'required|array|min:1',
+            'produk.*.id_satuan' => 'required|integer|distinct|exists:satuan_produk,id_satuan',
+            'produk.*.qty' => 'required|integer|min:1',
+            'jumlah_bayar' => 'required|integer|min:0',
+        ]);
 
-        if (!$request->has('jumlah_bayar') || $request->jumlah_bayar === null || $request->jumlah_bayar === '') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kolom nominal Bayar wajib diisi angka.'
-            ], 400);
-        }
-
-        DB::beginTransaction();
         try {
-            $total_tagihan = 0;
-            $total_keuntungan = 0;
+            $trx = DB::transaction(function () use ($validated) {
+                $unitIds = collect($validated['produk'])
+                    ->pluck('id_satuan')
+                    ->map(fn ($id) => (int) $id);
 
-            foreach ($request->produk as $item) {
-                $satuan = SatuanProduk::with('produk')->find($item['id_satuan']);
+                $units = SatuanProduk::whereIn('id_satuan', $unitIds)
+                    ->get()
+                    ->keyBy('id_satuan');
 
-                if ($satuan) {
-                    $harga_beli = $satuan->harga_beli ?? 0;
-                    $subtotal = $item['qty'] * $item['harga_jual'];
-                    $keuntungan = ($item['harga_jual'] - $harga_beli) * $item['qty'];
+                $productIds = $units->pluck('id_produk')->unique()->sort()->values();
+                $products = Produk::whereIn('id_produk', $productIds)
+                    ->orderBy('id_produk')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id_produk');
 
-                    $total_tagihan += $subtotal;
-                    $total_keuntungan += $keuntungan;
+                $items = [];
+                $stockUsage = [];
+                $totalTagihan = 0;
+                $totalKeuntungan = 0;
+
+                foreach ($validated['produk'] as $input) {
+                    $unit = $units->get((int) $input['id_satuan']);
+                    $product = $unit ? $products->get($unit->id_produk) : null;
+
+                    if (! $unit || ! $product) {
+                        throw ValidationException::withMessages([
+                            'produk' => 'Produk atau satuan yang dipilih tidak tersedia.',
+                        ]);
+                    }
+
+                    $quantity = (int) $input['qty'];
+                    $salePrice = (int) $unit->harga_jual;
+                    $purchasePrice = (int) ($unit->harga_beli ?? 0);
+                    $multiplier = max(1, (int) ($unit->kuantiti_per_satuan ?? 1));
+                    $smallestQuantity = $quantity * $multiplier;
+                    $subtotal = $quantity * $salePrice;
+                    $profit = ($salePrice - $purchasePrice) * $quantity;
+
+                    $stockUsage[$product->id_produk] =
+                        ($stockUsage[$product->id_produk] ?? 0) + $smallestQuantity;
+
+                    $items[] = [
+                        'unit' => $unit,
+                        'product' => $product,
+                        'quantity' => $quantity,
+                        'purchase_price' => $purchasePrice,
+                        'sale_price' => $salePrice,
+                        'subtotal' => $subtotal,
+                        'profit' => $profit,
+                    ];
+                    $totalTagihan += $subtotal;
+                    $totalKeuntungan += $profit;
                 }
-            }
 
-            if ($request->jumlah_bayar < $total_tagihan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Uang pembayaran kurang dari total tagihan.'
-                ], 400);
-            }
+                foreach ($stockUsage as $productId => $usedStock) {
+                    $product = $products->get($productId);
+                    if ($usedStock > (int) $product->total_stok_terkecil) {
+                        throw ValidationException::withMessages([
+                            'produk' => "Stok {$product->nama_produk} tidak mencukupi.",
+                        ]);
+                    }
+                }
 
-            $hari  = date('j'); 
-            $bulan = date('n'); 
-            $tahun = date('Y'); 
-            $formatWaktu = $hari . $bulan . $tahun; 
+                $amountPaid = (int) $validated['jumlah_bayar'];
+                if ($amountPaid < $totalTagihan) {
+                    throw ValidationException::withMessages([
+                        'jumlah_bayar' => 'Uang pembayaran kurang dari total tagihan.',
+                    ]);
+                }
 
-            $prefixInvoice = 'TRX-' . $formatWaktu . '-';
-            $jumlahTransaksiHariIni = Transaksi::where('kode_transaksi', 'like', $prefixInvoice . '%')->count();
-            
-            $nomorUrut = sprintf('%03d', $jumlahTransaksiHariIni + 1);
-            $invoiceFinal = $prefixInvoice . $nomorUrut; 
+                $invoicePrefix = 'TRX-'.date('j').date('n').date('Y').'-';
+                $dailyCount = Transaksi::where(
+                    'kode_transaksi',
+                    'like',
+                    $invoicePrefix.'%'
+                )->lockForUpdate()->count();
+                $invoice = $invoicePrefix.sprintf('%03d', $dailyCount + 1);
 
-            $trx = Transaksi::create([
-                'kode_transaksi' => $invoiceFinal, 
-                'total_tagihan' => $total_tagihan,
-                'jumlah_bayar' => $request->jumlah_bayar,
-                'kembalian' => $request->jumlah_bayar - $total_tagihan,
-                'total_keuntungan' => $total_keuntungan,
-            ]);
-
-            $tahunBulan = date('Ym');
-            $prefix = "OUT-{$tahunBulan}-";
-
-            $lastPergerakan = DB::table('pergerakan_stok')
-                ->where('kode_pergerakan', 'like', $prefix . '%')
-                ->orderBy('kode_pergerakan', 'desc')
-                ->first();
-
-            $sequence = 1;
-            if ($lastPergerakan) {
-                $lastSequence = (int) substr($lastPergerakan->kode_pergerakan, -4);
-                $sequence = $lastSequence + 1;
-            }
-
-            $kodeDokumenStok = $prefix . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-
-            $pergerakanInduk = PergerakanStok::create([
-                'kode_pergerakan' => $kodeDokumenStok,
-                'tipe_pergerakan' => 'keluar', 
-                'tanggal_pergerakan' => now(),
-                'catatan' => 'Penjualan Nota: ' . $invoiceFinal,
-            ]);
-
-            foreach ($request->produk as $item) {
-                $satuan = SatuanProduk::with('produk')->find($item['id_satuan']);
-                if (!$satuan) continue;
-
-                $harga_beli = $satuan->harga_beli ?? 0;
-                $pengali = $satuan->kuantiti_per_satuan ?? 1;
-                $kuantitiTerkecil = $item['qty'] * $pengali;
-
-                DetailTransaksi::create([
-                    'id_transaksi' => $trx->id_transaksi, 
-                    'id_satuan' => $item['id_satuan'],
-                    'kuantiti' => $item['qty'],
-                    'harga_beli' => $harga_beli,
-                    'harga_jual' => $item['harga_jual'],
-                    'subtotal' => $item['qty'] * $item['harga_jual'],
-                    'keuntungan' => ($item['harga_jual'] - $harga_beli) * $item['qty'],
+                $transaction = Transaksi::create([
+                    'kode_transaksi' => $invoice,
+                    'total_tagihan' => $totalTagihan,
+                    'jumlah_bayar' => $amountPaid,
+                    'kembalian' => $amountPaid - $totalTagihan,
+                    'total_keuntungan' => $totalKeuntungan,
                 ]);
 
-                DB::table('detail_pergerakan_stok')->insert([
-                    'id_pergerakan' => $pergerakanInduk->id_pergerakan, 
-                    'id_satuan' => $item['id_satuan'],
-                    'kuantiti' => $item['qty'], 
-                    'snapshot_nama_produk' => $satuan->produk->nama_produk ?? '-',
-                    'snapshot_kode_produk' => $satuan->produk->kode_produk ?? '-',
-                    'snapshot_nama_satuan' => $satuan->nama_satuan ?? '-',
-                    'snapshot_harga_beli' => $harga_beli,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                $movementPrefix = 'OUT-'.date('Ym').'-';
+                $lastMovement = PergerakanStok::where(
+                    'kode_pergerakan',
+                    'like',
+                    $movementPrefix.'%'
+                )->orderByDesc('kode_pergerakan')->lockForUpdate()->first();
+                $sequence = $lastMovement
+                    ? ((int) substr($lastMovement->kode_pergerakan, -4)) + 1
+                    : 1;
+
+                $movement = PergerakanStok::create([
+                    'kode_pergerakan' => $movementPrefix.str_pad(
+                            (string) $sequence,
+                            4,
+                            '0',
+                            STR_PAD_LEFT
+                        ),
+                    'tipe_pergerakan' => 'keluar',
+                    'tanggal_pergerakan' => now(),
+                    'catatan' => 'Penjualan Nota: '.$invoice,
                 ]);
 
-                if ($satuan->produk) {
-                    $satuan->produk->decrement('total_stok_terkecil', $kuantitiTerkecil);
-                }
-            }
+                foreach ($items as $item) {
+                    $unit = $item['unit'];
+                    $product = $item['product'];
 
-            DB::commit();
+                    DetailTransaksi::create([
+                        'id_transaksi' => $transaction->id_transaksi,
+                        'id_satuan' => $unit->id_satuan,
+                        'kuantiti' => $item['quantity'],
+                        'harga_beli' => $item['purchase_price'],
+                        'harga_jual' => $item['sale_price'],
+                        'subtotal' => $item['subtotal'],
+                        'keuntungan' => $item['profit'],
+                    ]);
+
+                    $movement->detail()->create([
+                        'id_satuan' => $unit->id_satuan,
+                        'kuantiti' => $item['quantity'],
+                        'snapshot_nama_produk' => $product->nama_produk,
+                        'snapshot_kode_produk' => $product->kode_produk,
+                        'snapshot_nama_satuan' => $unit->nama_satuan,
+                        'snapshot_harga_beli' => $item['purchase_price'],
+                    ]);
+                }
+
+                foreach ($stockUsage as $productId => $usedStock) {
+                    $product = $products->get($productId);
+                    $product->total_stok_terkecil =
+                        (int) $product->total_stok_terkecil - $usedStock;
+                    $product->save();
+                }
+
+                return $transaction->load([
+                    'detailTransaksi.satuanProduk.produk',
+                ]);
+            }, 3);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Transaksi berhasil disimpan',
                 'data' => [
-                    'invoice' => $invoiceFinal,
-                    'transaksi' => $trx
-                ]
+                    'invoice' => $trx->kode_transaksi,
+                    'transaksi' => $trx,
+                ],
             ], 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan sistem: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -189,7 +237,7 @@ class TransaksiController extends Controller
     public function show($id)
     {
         $transaksi = Transaksi::with(['detailTransaksi.satuanProduk.produk'])->findOrFail($id);
-        
+
         return response()->json([
             'success' => true,
             'data' => $transaksi
@@ -199,17 +247,83 @@ class TransaksiController extends Controller
     public function destroy($id)
     {
         try {
-            $transaksi = Transaksi::findOrFail($id);
-            $transaksi->delete();
+            DB::transaction(function () use ($id) {
+                $transaction = Transaksi::with(
+                    'detailTransaksi.satuanProduk'
+                )->lockForUpdate()->findOrFail($id);
+
+                $productIds = $transaction->detailTransaksi
+                    ->map(fn ($detail) => $detail->satuanProduk?->id_produk)
+                    ->filter()
+                    ->unique()
+                    ->sort()
+                    ->values();
+                $products = Produk::whereIn('id_produk', $productIds)
+                    ->orderBy('id_produk')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id_produk');
+
+                foreach ($transaction->detailTransaksi as $detail) {
+                    $unit = $detail->satuanProduk;
+                    $product = $unit ? $products->get($unit->id_produk) : null;
+                    if (! $unit || ! $product) {
+                        continue;
+                    }
+
+                    $product->total_stok_terkecil =
+                        (int) $product->total_stok_terkecil
+                        + ((int) $detail->kuantiti
+                            * max(1, (int) $unit->kuantiti_per_satuan));
+                    $product->save();
+                }
+
+                PergerakanStok::where(
+                    'catatan',
+                    'Penjualan Nota: '.$transaction->kode_transaksi
+                )->delete();
+                $transaction->delete();
+            }, 3);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Transaksi berhasil dihapus.'
+                'message' => 'Transaksi dihapus dan stok telah dikembalikan.',
             ]);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus transaksi: ' . $e->getMessage()
+                'message' => 'Gagal menghapus transaksi: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+        $start = $validated['start_date'];
+        $end = $validated['end_date'];
+        $fileName = "Laporan_Transaksi_{$start}_sd_{$end}.xlsx";
+
+        return Excel::download(
+            new TransaksiExport($start, $end),
+            $fileName
+        );
+    }
+
+    public function cetak($id)
+    {
+        $transaksi = Transaksi::with([
+            'detailTransaksi.satuanProduk.produk',
+        ])->findOrFail($id);
+        $fileName = 'Nota_'.$transaksi->kode_transaksi.'.pdf';
+        $pdf = Pdf::loadView(
+            'format-dokumen.nota-transaksi',
+            compact('transaksi')
+        )->setPaper('A5', 'portrait');
+
+        return $pdf->download($fileName);
     }
 }

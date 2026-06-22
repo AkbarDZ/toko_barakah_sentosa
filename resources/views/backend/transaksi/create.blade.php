@@ -90,19 +90,25 @@
     </div>
 </div>
 
+@endsection
+
+@push('scripts')
 <script>
 let total = 0;
 let itemIndex = 0; 
 
 $(document).ready(function() {
-    // Re-inisialisasi/Pastikan select2 terpasang dengan tema bootstrap yang benar
-    $('.use-select2').select2({
-        theme: 'bootstrap4', 
-        width: '100%',
-        placeholder: '-- Pilih Produk --'
+    // Event handler Select2: langsung tampilkan sisa stok saat produk dipilih
+    $('#produk').on('select2:select', function () {
+        updateInfoStok();
     });
 
-    // Event handler jQuery Select2 untuk mendeteksi perubahan produk
+    // Reset info stok saat Select2 di-clear / dikosongkan
+    $('#produk').on('select2:clear', function () {
+        document.getElementById('info-stok').value = "0";
+    });
+
+    // Juga tangkap event change untuk reset via .trigger('change')
     $('#produk').on('change', function () {
         updateInfoStok();
     });
@@ -194,7 +200,7 @@ function tambahItem() {
     document.getElementById('qty').value = 1; 
     
     // Reset Select2 ke posisi default awal setelah sukses tambah data
-    $('.use-select2').val('').trigger('change');
+    $('#produk').val('').trigger('change');
 }
 
 function hapusItem(btn, subtotal, id, qty) {
@@ -212,5 +218,4 @@ function hapusItem(btn, subtotal, id, qty) {
     updateInfoStok();
 }
 </script>
-
-@endsection
+@endpush

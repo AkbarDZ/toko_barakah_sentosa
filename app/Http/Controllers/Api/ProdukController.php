@@ -41,7 +41,7 @@ class ProdukController extends Controller
             $img = Image::make($file->getRealPath());
             $img->resize(600, null, function ($constraint) {
                 $constraint->aspectRatio();
-                $constraint->upsize(); 
+                $constraint->upsize();
             });
 
             $encoded = (string) $img->encode('jpg', 75);
@@ -51,22 +51,22 @@ class ProdukController extends Controller
         $kategoriDigit = str_pad($request->id_kategori, 2, '0', STR_PAD_LEFT);
         $words = explode(' ', trim($request->nama_produk));
         $singkatan = '';
-        
+
         foreach ($words as $word) {
             $singkatan .= strtoupper(substr($word, 0, 1));
             if (strlen($singkatan) >= 3) break;
         }
-        
+
         if (strlen($singkatan) < 3) {
             $cleanName = preg_replace('/[^A-Za-z]/', '', $request->nama_produk);
             $singkatan = strtoupper(substr($cleanName, 0, 3));
         }
-        
+
         $singkatan = str_pad($singkatan, 3, 'X');
-        $prefix = $kategoriDigit . '-' . $singkatan . '-'; 
+        $prefix = $kategoriDigit . '-' . $singkatan . '-';
 
         $kodeProduk = DB::transaction(function () use ($pathGambar, $prefix, $validated) {
-            
+
             $lastProduct = DB::table('produk')
                 ->where('kode_produk', 'like', $prefix . '%')
                 ->orderBy('kode_produk', 'desc')
@@ -108,7 +108,7 @@ class ProdukController extends Controller
     public function show($id)
     {
         $produk = Produk::with('kategori')->findOrFail($id);
-        
+
         return response()->json([
             'success' => true,
             'data' => $produk
@@ -145,10 +145,10 @@ class ProdukController extends Controller
             $pathGambar = 'produk/' . $filename;
 
             $img = Image::make($file->getRealPath());
-            
+
             $img->resize(600, null, function ($constraint) {
                 $constraint->aspectRatio();
-                $constraint->upsize(); 
+                $constraint->upsize();
             });
 
             $encoded = (string) $img->encode('jpg', 75);
@@ -181,7 +181,7 @@ class ProdukController extends Controller
         }
 
         $produk->delete();
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Produk dihapus'
