@@ -25,6 +25,9 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Revoke all previous tokens for the user to prevent concurrent API sessions
+        $user->tokens()->delete();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
