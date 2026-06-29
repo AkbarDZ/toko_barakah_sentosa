@@ -28,6 +28,9 @@ class AuthController extends Controller
         // Revoke all previous tokens for the user to prevent concurrent API sessions
         $user->tokens()->delete();
 
+        // Invalidate any active web/browser sessions by setting the cache value to a dummy string
+        \Illuminate\Support\Facades\Cache::put("user_session_{$user->id}", 'api_session', now()->addHours(8));
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

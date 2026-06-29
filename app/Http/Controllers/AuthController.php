@@ -41,6 +41,9 @@ class AuthController extends Controller
         $request->session()->put('user_role', $user->role ?? 'kasir');
         $request->session()->put('user_name', $user->name ?? '');
 
+        // Revoke all API tokens to prevent concurrent mobile sessions
+        $user->tokens()->delete();
+
         // Store the active session ID in cache to prevent concurrent web logins
         \Illuminate\Support\Facades\Cache::put("user_session_{$user->id}", $request->session()->getId(), now()->addHours(8));
 
