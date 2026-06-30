@@ -139,7 +139,7 @@ class TransaksiController extends Controller
                 }
 
                 $invoicePrefix = 'TRX-'.date('j').date('n').date('Y').'-';
-                $dailyCount = Transaksi::where(
+                $dailyCount = Transaksi::withTrashed()->where(
                     'kode_transaksi',
                     'like',
                     $invoicePrefix.'%'
@@ -155,7 +155,7 @@ class TransaksiController extends Controller
                 ]);
 
                 $movementPrefix = 'OUT-'.date('Ym').'-';
-                $lastMovement = PergerakanStok::where(
+                $lastMovement = PergerakanStok::withTrashed()->where(
                     'kode_pergerakan',
                     'like',
                     $movementPrefix.'%'

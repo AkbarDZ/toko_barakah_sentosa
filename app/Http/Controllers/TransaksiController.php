@@ -120,7 +120,7 @@ class TransaksiController extends Controller
 
             // Hitung jumlah transaksi yang menggunakan format tanggal yang sama hari ini
             $prefixInvoice = 'TRX-' . $formatWaktu . '-';
-            $jumlahTransaksiHariIni = Transaksi::where('kode_transaksi', 'like', $prefixInvoice . '%')->count();
+            $jumlahTransaksiHariIni = Transaksi::withTrashed()->where('kode_transaksi', 'like', $prefixInvoice . '%')->count();
             
             $nomorUrut = sprintf('%03d', $jumlahTransaksiHariIni + 1);
             $invoiceFinal = $prefixInvoice . $nomorUrut; // Hasil final: TRX-562026-001
